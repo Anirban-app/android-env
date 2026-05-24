@@ -1,0 +1,2 @@
+rootProject.name = "OTTking Premium"
+include ':app'
