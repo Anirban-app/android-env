@@ -1,7 +1,7 @@
 name: 📦 2. Compile and Build App
 
 on:
-  workflow_dispatch: # ম্যানুয়ালি বিল্ড রান করার জন্য
+  workflow_dispatch:
 
 jobs:
   build_project:
@@ -30,7 +30,7 @@ jobs:
           java-version: ${{ env.JAVA_VER }}
           cache: 'gradle'
 
-      # জেসনের নতুন কোনো ডিপেন্ডেন্সি থাকলে তা বিল্ডের আগে গ্র্যাডলে সিঙ্ক বা রাইট করার স্টেপ
+      # জেসনের নতুন কোনো ডিপেন্ডেন্সি থকলে তা বিল্ডের আগে অ্যাপ গ্র্যাডলে ইনজেক্ট করা
       - name: Sync and Inject Latest Dependencies to Gradle
         run: |
           cat <<EOF > source/android_code/app/build.gradle
