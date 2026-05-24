@@ -1,0 +1,72 @@
+name: 📦 2. Compile and Build App
+
+on:
+  workflow_dispatch: # ম্যানুয়ালি বিল্ড রান করার জন্য
+
+jobs:
+  build_project:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Fetch Environment Variables
+        run: |
+          JAVA_VER=$(jq -r '.java_version' setup/setup.json)
+          APP_NAME=$(jq -r '.app_name' setup/setup.json)
+          CODEBASE=$(jq -r '.codebase' setup/setup.json)
+          PACKAGE=$(jq -r '.package' setup/setup.json)
+          
+          echo "JAVA_VER=$JAVA_VER" >> $GITHUB_ENV
+          echo "APP_NAME=$APP_NAME" >> $GITHUB_ENV
+          echo "CODEBASE=$CODEBASE" >> $GITHUB_ENV
+          echo "PACKAGE=$PACKAGE" >> $GITHUB_ENV
+
+      - name: Set up JDK Environment
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: ${{ env.JAVA_VER }}
+          cache: 'gradle'
+
+      # এই স্টেপটি রান করার সময় জেসনের নতুন ডিপেন্ডেন্সিগুলো গ্র্যাডলে রি-রাইট করে নেবে
+      - name: Sync and Inject Latest Dependencies to Gradle
+        run: |
+          cat <<EOF > source/android_code/app/build/gradle
+          apply plugin: 'com.android.application'
+          if ('${{ env.CODEBASE }}' == 'kotlin') { apply plugin: 'kotlin-android' }
+
+          android {
+              namespace '${{ env.PACKAGE }}'
+              compileSdk 34
+              defaultConfig {
+                  applicationId '${{ env.PACKAGE }}'
+                  minSdk 21
+                  targetSdk 34
+                  versionCode 1
+                  versionName "1.0"
+              }
+          }
+          dependencies {
+              implementation 'androidx.appcompat:appcompat:1.6.1'
+              implementation 'com.google.android.material:material:1.11.0'
+              implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+              $(jq -r '.dependencies[] | "    implementation \((.))\""' setup/setup.json)
+          }
+          EOF
+          echo "Dependencies synchronized successfully with setup.json"
+
+      - name: Grant Execute Permission
+        run: chmod +x source/android_code/gradlew
+
+      - name: Run Clean Gradle Build
+        run: |
+          cd source/android_code
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Upload Output APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APP_NAME }}-build
+          path: source/android_code/app/build/outputs/apk/debug/app-debug.apk
