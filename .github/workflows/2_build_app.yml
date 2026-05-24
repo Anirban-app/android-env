@@ -1,4 +1,4 @@
-name: 📦 2. Compile and Build App
+name: 📦 2. Compile and Build App 📳
 
 on:
   workflow_dispatch:
@@ -30,43 +30,19 @@ jobs:
           java-version: ${{ env.JAVA_VER }}
           cache: 'gradle'
 
-      - name: Sync and Inject Latest Dependencies to Gradle
+      - name: Live Update Dependencies inside Build File
         run: |
           TARGET_FILE="source/android_code/app/build.gradle"
-          
-          # ১. বেস অংশ ফ্রেশ করে রি-রাইট করা
           echo "apply plugin: 'com.android.application'" > $TARGET_FILE
-          if [ "${{ env.CODEBASE }}" = "kotlin" ]; then 
-              echo "apply plugin: 'kotlin-android'" >> $TARGET_FILE
-          fi
-
-          echo "android {" >> $TARGET_FILE
-          echo "    namespace '${{ env.PACKAGE }}'" >> $TARGET_FILE
-          echo "    compileSdk 34" >> $TARGET_FILE
-          echo "    defaultConfig {" >> $TARGET_FILE
-          echo "        applicationId '${{ env.PACKAGE }}'" >> $TARGET_FILE
-          echo "        minSdk 21" >> $TARGET_FILE
-          echo "        targetSdk 34" >> $TARGET_FILE
-          echo "        versionCode 1" >> $TARGET_FILE
-          echo "        versionName \"1.0\"" >> $GITHUB_ENV
-          echo "        versionName \"1.0\"" >> $TARGET_FILE
-          echo "    }" >> $TARGET_FILE
-          echo "}" >> $TARGET_FILE
-
-          # ২. ডিপেন্ডেন্সি ব্লক নতুন জেসন অনুযায়ী বসানো
-          echo "dependencies {" >> $TARGET_FILE
-          echo "    implementation 'androidx.appcompat:appcompat:1.6.1'" >> $TARGET_FILE
-          echo "    implementation 'com.google.android.material:material:1.11.0'" >> $TARGET_FILE
-          echo "    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'" >> $TARGET_FILE
+          if [ "${{ env.CODEBASE }}" = "kotlin" ]; then echo "apply plugin: 'kotlin-android'" >> $TARGET_FILE; fi
           
-          # জেসন ফাইল থেকে সরাসরি রিড করে রাইট করা
+          echo -e "android {\n    namespace '${{ env.PACKAGE }}'\n    compileSdk 34\n    defaultConfig {\n        applicationId '${{ env.PACKAGE }}'\n        minSdk 21\n        targetSdk 34\n        versionCode 1\n        versionName \"1.0\"\n    }\n}" >> $TARGET_FILE
+          echo -e "dependencies {\n    implementation 'androidx.appcompat:appcompat:1.6.1'\n    implementation 'com.google.android.material:material:1.11.0'\n    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'" >> $TARGET_FILE
+          
           jq -r '.dependencies[]' setup/setup.json | while read -r lib; do
-              if [ ! -z "$lib" ]; then
-                  echo "    implementation '$lib'" >> $TARGET_FILE
-              fi
+              if [ ! -z "$lib" ]; then echo "    implementation '$lib'" >> $TARGET_FILE; fi
           done
           echo "}" >> $TARGET_FILE
-          echo "Dependencies synchronized successfully with setup.json"
 
       - name: Grant Execute Permission
         run: chmod +x source/android_code/gradlew
