@@ -1,0 +1,172 @@
+name: 🛠️ 1. Generate Project Template
+
+on:
+  workflow_dispatch:
+
+jobs:
+  generate_template:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Parse setup.json Configuration
+        id: parse_json
+        run: |
+          APP_NAME=$(jq -r '.app_name' setup/setup.json)
+          PACKAGE=$(jq -r '.package' setup/setup.json)
+          JAVA_VER=$(jq -r '.java_version' setup/setup.json)
+          CODEBASE=$(jq -r '.codebase' setup/setup.json)
+          MODE=$(jq -r '.mode' setup/setup.json)
+          PACKAGE_PATH=$(echo "$PACKAGE" | tr '.' '/')
+          
+          echo "APP_NAME=$APP_NAME" >> $GITHUB_ENV
+          echo "PACKAGE=$PACKAGE" >> $GITHUB_ENV
+          echo "JAVA_VER=$JAVA_VER" >> $GITHUB_ENV
+          echo "CODEBASE=$CODEBASE" >> $GITHUB_ENV
+          echo "MODE=$MODE" >> $GITHUB_ENV
+          echo "PACKAGE_PATH=$PACKAGE_PATH" >> $GITHUB_ENV
+
+      - name: Create Essential Android Directories
+        run: |
+          rm -rf source/android_code
+          mkdir -p source/android_code/app/src/main/res/layout
+          mkdir -p source/android_code/app/src/main/res/values
+          mkdir -p source/android_code/gradle/wrapper
+          mkdir -p source/android_code/app/src/main/java/${{ env.PACKAGE_PATH }}
+
+      - name: Generate Core Project Files
+        run: |
+          cd source/android_code
+          
+          # settings.gradle
+          echo "rootProject.name = \"${{ env.APP_NAME }}\"" > settings.gradle
+          echo "include ':app'" >> settings.gradle
+
+          # root build.gradle
+          cat <<EOF > build.gradle
+          buildscript {
+              repositories { google(); mavenCentral() }
+              dependencies {
+                  classpath 'com.android.tools.build:gradle:8.2.2'
+                  if ('${{ env.CODEBASE }}' == 'kotlin') {
+                      classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.22'
+                  }
+              }
+          }
+          allprojects { repositories { google(); mavenCentral() } }
+          EOF
+
+          # app/build.gradle (প্রাথমিক বিল্ড ফাইল)
+          cat <<EOF > app/build.gradle
+          apply plugin: 'com.android.application'
+          if ('${{ env.CODEBASE }}' == 'kotlin') { apply plugin: 'kotlin-android' }
+
+          android {
+              namespace '${{ env.PACKAGE }}'
+              compileSdk 34
+              defaultConfig {
+                  applicationId '${{ env.PACKAGE }}'
+                  minSdk 21
+                  targetSdk 34
+                  versionCode 1
+                  versionName "1.0"
+              }
+          }
+          dependencies {
+              implementation 'androidx.appcompat:appcompat:1.6.1'
+              implementation 'com.google.android.material:material:1.11.0'
+              implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+              // setup.json থেকে ডিপেন্ডেন্সি ইনজেক্ট করা হচ্ছে
+              $(jq -r '.dependencies[] | "    implementation \((.))\""' ../../setup/setup.json)
+          }
+          EOF
+
+          # AndroidManifest.xml
+          LAUNCHER_CAT="android.intent.category.LAUNCHER"
+          TV_FEATURE=""
+          if [ "${{ env.MODE }}" = "tv" ]; then
+             LAUNCHER_CAT="android.intent.category.LEANBACK_LAUNCHER"
+             TV_FEATURE="<uses-feature android:name=\"android.software.leanback\" android:required=\"false\"/>"
+          fi
+
+          cat <<EOF > app/src/main/AndroidManifest.xml
+          <manifest xmlns:android="http://schemas.github.com/apk/res/android">
+              <uses-permission android:name="android.permission.INTERNET"/>
+              $TV_FEATURE
+              <application
+                  android:allowBackup="true"
+                  android:label="${{ env.APP_NAME }}"
+                  android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+                  <activity android:name=".MainActivity" android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="$LAUNCHER_CAT" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+          # MainActivity (Java/Kotlin)
+          if [ "${{ env.CODEBASE }}" = "kotlin" ]; then
+          cat <<EOF > app/src/main/java/${{ env.PACKAGE_PATH }}/MainActivity.kt
+          package ${{ env.PACKAGE }}
+          import android.os.Bundle
+          import androidx.appcompat.app.AppCompatActivity
+
+          class MainActivity : AppCompatActivity() {
+              override fun onCreate(savedInstanceState: Bundle?) {
+                  super.onCreate(savedInstanceState)
+                  setContentView(R.layout.activity_main)
+              }
+          }
+          EOF
+          else
+          cat <<EOF > app/src/main/java/${{ env.PACKAGE_PATH }}/MainActivity.java
+          package ${{ env.PACKAGE }};
+          import android.os.Bundle;
+          import androidx.appcompat.app.AppCompatActivity;
+
+          public class MainActivity extends AppCompatActivity {
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  setContentView(R.layout.activity_main);
+              }
+          }
+          EOF
+          fi
+
+          # activity_main.xml Layout
+          cat <<EOF > app/src/main/res/layout/activity_main.xml
+          <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:layout_width="match_parent" android:layout_height="match_parent">
+              <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                  android:text="Template Ready" android:layout_centerInParent="true"/>
+          </RelativeLayout>
+          EOF
+
+          # gradle.properties
+          echo "android.useAndroidX=true" > gradle.properties
+          echo "android.enableJetifier=true" >> gradle.properties
+
+      # গ্রেডল বিল্ড রান করার জন্য প্রয়োজনীয় Wrapper ফাইল ডাউনলোড ও সেটআপ
+      - name: Setup Gradle Wrapper
+        run: |
+          cd source/android_code
+          wget https://raw.githubusercontent.com/gradle/gradle/master/gradlew -O gradlew
+          chmod +x gradlew
+          echo "distributionUrl=https\://services.gradle.org/distributions/gradle-8.5-all.zip" > gradle/wrapper/gradle-wrapper.properties
+
+      # সমস্ত তৈরি হওয়া ফাইল গিটহাবে পুশ করা
+      - name: Push All Required Files to Github
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add source/android_code
+          git commit -m "🚀 Pushed All Essential Android Project Files" || echo "No changes"
+          git push origin main
