@@ -30,10 +30,10 @@ jobs:
           java-version: ${{ env.JAVA_VER }}
           cache: 'gradle'
 
-      # এই স্টেপটি রান করার সময় জেসনের নতুন ডিপেন্ডেন্সিগুলো গ্র্যাডলে রি-রাইট করে নেবে
+      # জেসনের নতুন কোনো ডিপেন্ডেন্সি থাকলে তা বিল্ডের আগে গ্র্যাডলে সিঙ্ক বা রাইট করার স্টেপ
       - name: Sync and Inject Latest Dependencies to Gradle
         run: |
-          cat <<EOF > source/android_code/app/build/gradle
+          cat <<EOF > source/android_code/app/build.gradle
           apply plugin: 'com.android.application'
           if ('${{ env.CODEBASE }}' == 'kotlin') { apply plugin: 'kotlin-android' }
 
