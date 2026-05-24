@@ -1,13 +1,13 @@
 name: 🛠️ 1. Generate Project Template
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: # গিটহাব থেকে ম্যানুয়ালি রান করার জন্য
 
 jobs:
   generate_template:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write # রিপোজিটরিতে কোড পুশ করার পারমিশন
 
     steps:
       - name: Checkout Repository
@@ -30,8 +30,15 @@ jobs:
           echo "MODE=$MODE" >> $GITHUB_ENV
           echo "PACKAGE_PATH=$PACKAGE_PATH" >> $GITHUB_ENV
 
+      - name: Setup Java Environment
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: ${{ env.JAVA_VER }}
+
       - name: Create Essential Android Directories
         run: |
+          # সোর্স ফোল্ডার ফ্রেশ করে স্ট্যান্ডার্ড অ্যান্ড্রয়েড ডিরেক্টরি তৈরি
           rm -rf source/android_code
           mkdir -p source/android_code/app/src/main/res/layout
           mkdir -p source/android_code/app/src/main/res/values
@@ -42,11 +49,11 @@ jobs:
         run: |
           cd source/android_code
           
-          # settings.gradle
+          # settings.gradle তৈরি
           echo "rootProject.name = \"${{ env.APP_NAME }}\"" > settings.gradle
           echo "include ':app'" >> settings.gradle
 
-          # root build.gradle
+          # root build.gradle তৈরি
           cat <<EOF > build.gradle
           buildscript {
               repositories { google(); mavenCentral() }
@@ -60,7 +67,7 @@ jobs:
           allprojects { repositories { google(); mavenCentral() } }
           EOF
 
-          # app/build.gradle (প্রাথমিক বিল্ড ফাইল)
+          # app/build.gradle তৈরি (ডিপেন্ডেন্সি লুপ সহ)
           cat <<EOF > app/build.gradle
           apply plugin: 'com.android.application'
           if ('${{ env.CODEBASE }}' == 'kotlin') { apply plugin: 'kotlin-android' }
@@ -80,19 +87,27 @@ jobs:
               implementation 'androidx.appcompat:appcompat:1.6.1'
               implementation 'com.google.android.material:material:1.11.0'
               implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
-              // setup.json থেকে ডিপেন্ডেন্সি ইনজেক্ট করা হচ্ছে
               $(jq -r '.dependencies[] | "    implementation \((.))\""' ../../setup/setup.json)
           }
           EOF
 
-          # AndroidManifest.xml
-          LAUNCHER_CAT="android.intent.category.LAUNCHER"
+          # ৪. অ্যান্ড্রয়েড মোড (Mobile, TV vs ALL) এর জন্য ডাইনামিক ম্যানিফেস্ট লজিক
           TV_FEATURE=""
-          if [ "${{ env.MODE }}" = "tv" ]; then
-             LAUNCHER_CAT="android.intent.category.LEANBACK_LAUNCHER"
+          INTENT_FILTERS=""
+
+          if [ "${{ env.MODE }}" = "mobile" ]; then
+             INTENT_FILTERS="<action android:name=\"android.intent.action.MAIN\" /><category android:name=\"android.intent.category.LAUNCHER\" />"
+          
+          elif [ "${{ env.MODE }}" = "tv" ]; then
+             TV_FEATURE="<uses-feature android:name=\"android.software.leanback\" android:required=\"false\"/><uses-feature android:name=\"android.hardware.touchscreen\" android:required=\"false\"/>"
+             INTENT_FILTERS="<action android:name=\"android.intent.action.MAIN\" /><category android:name=\"android.intent.category.LEANBACK_LAUNCHER\" />"
+          
+          elif [ "${{ env.MODE }}" = "all" ]; then
              TV_FEATURE="<uses-feature android:name=\"android.software.leanback\" android:required=\"false\"/>"
+             INTENT_FILTERS="<action android:name=\"android.intent.action.MAIN\" /><category android:name=\"android.intent.category.LAUNCHER\" /><category android:name=\"android.intent.category.LEANBACK_LAUNCHER\" />"
           fi
 
+          # ৫. ডাইনামিক AndroidManifest.xml জেনারেট
           cat <<EOF > app/src/main/AndroidManifest.xml
           <manifest xmlns:android="http://schemas.github.com/apk/res/android">
               <uses-permission android:name="android.permission.INTERNET"/>
@@ -103,15 +118,14 @@ jobs:
                   android:theme="@style/Theme.AppCompat.Light.NoActionBar">
                   <activity android:name=".MainActivity" android:exported="true">
                       <intent-filter>
-                          <action android:name="android.intent.action.MAIN" />
-                          <category android:name="$LAUNCHER_CAT" />
+                          $INTENT_FILTERS
                       </intent-filter>
                   </activity>
               </application>
           </manifest>
           EOF
 
-          # MainActivity (Java/Kotlin)
+          # codebase অনুযায়ী MainActivity জেনারেট করা
           if [ "${{ env.CODEBASE }}" = "kotlin" ]; then
           cat <<EOF > app/src/main/java/${{ env.PACKAGE_PATH }}/MainActivity.kt
           package ${{ env.PACKAGE }}
@@ -141,21 +155,21 @@ jobs:
           EOF
           fi
 
-          # activity_main.xml Layout
+          # activity_main.xml Layout জেনারেট করা
           cat <<EOF > app/src/main/res/layout/activity_main.xml
-          <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+          <RelativeLayout xmlns:android="http://schemas.github.com/apk/res/android"
               android:layout_width="match_parent" android:layout_height="match_parent">
               <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                   android:text="Template Ready" android:layout_centerInParent="true"/>
           </RelativeLayout>
           EOF
 
-          # gradle.properties
+          # gradle.properties জেনারেট করা
           echo "android.useAndroidX=true" > gradle.properties
           echo "android.enableJetifier=true" >> gradle.properties
 
-      # গ্রেডল বিল্ড রান করার জন্য প্রয়োজনীয় Wrapper ফাইল ডাউনলোড ও সেটআপ
-      - name: Setup Gradle Wrapper
+      # অফিশিয়াল গ্রেডল র‍্যাপার ইনস্টল করা
+      - name: Inject Official Gradle Wrapper
         run: |
           cd source/android_code
           wget https://raw.githubusercontent.com/gradle/gradle/master/gradlew -O gradlew
