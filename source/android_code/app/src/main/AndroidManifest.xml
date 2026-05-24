@@ -1,16 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     
-    <!-- পারমিশন সমূহ -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
-    <!-- টিভি সাপোর্ট নিশ্চিত করার জন্য এই লাইনটি একদম ঠিক আছে -->
+    <!-- টিভি সাপোর্টের জন্য ফিচারসমূহ -->
     <uses-feature
         android:name="android.software.leanback"
         android:required="false" />
-
-    <!-- ⚠️ এটি যুক্ত করা বাধ্যতামূলক: টিভি রিমোট দিয়ে অ্যাপ কন্ট্রোল করার জন্য -->
     <uses-feature 
         android:name="android.hardware.touchscreen" 
         android:required="false" />
@@ -21,17 +18,27 @@
         android:label="@string/app_name"
         android:theme="@style/Theme.Ottking">
         
+        <!-- ১. মোবাইলের জন্য মেইন অ্যাক্টিভিটি (শুধু মোবাইল লঞ্চার) -->
         <activity
             android:name=".MainActivity"
             android:exported="true">
             <intent-filter>
-                <!-- মোবাইলের জন্য লঞ্চার ক্যাটাগরি -->
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
-                
-                <!-- স্মার্ট টিভির হোম স্ক্রিনে অ্যাপ দেখানোর জন্য ক্যাটাগরি -->
-                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- ২. স্মার্ট টিভির জন্য আলাদা অ্যাক্টিভিটি এলিয়াস (Alias) -->
+        <!-- এটি টিভির হোম স্ক্রিনে আলাদা আইকন দেখাবে কিন্তু অ্যাপটি আপনার MainActivity-কেই ওপেন করবে -->
+        <activity-alias
+            android:name=".TvMainActivity"
+            android:exported="true"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
     </application>
 </manifest>
