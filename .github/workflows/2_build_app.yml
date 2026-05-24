@@ -30,14 +30,53 @@ jobs:
           java-version: ${{ env.JAVA_VER }}
           cache: 'gradle'
 
-      - name: Live Update Dependencies inside Build File
+      - name: Live Update Dependencies and Enable Architecture Splits
         run: |
           TARGET_FILE="source/android_code/app/build.gradle"
+          
+          # ১. প্লাগইন ডিক্লেয়ারেশন
           echo "apply plugin: 'com.android.application'" > $TARGET_FILE
           if [ "${{ env.CODEBASE }}" = "kotlin" ]; then echo "apply plugin: 'kotlin-android'" >> $TARGET_FILE; fi
           
-          echo -e "android {\n    namespace '${{ env.PACKAGE }}'\n    compileSdk 34\n    defaultConfig {\n        applicationId '${{ env.PACKAGE }}'\n        minSdk 21\n        targetSdk 34\n        versionCode 1\n        versionName \"1.0\"\n    }\n}" >> $TARGET_FILE
-          echo -e "dependencies {\n    implementation 'androidx.appcompat:appcompat:1.6.1'\n    implementation 'com.google.android.material:material:1.11.0'\n    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'" >> $TARGET_FILE
+          # ২. অ্যান্ড্রয়েড ব্লক এবং সাইজ অপ্টিমাইজেশন (Minify + Shrink) সহ আর্কিটেকচার স্প্লিট কনফিগারেশন
+          cat << 'EOF' >> $TARGET_FILE
+          android {
+              namespace 'VAR_PACKAGE'
+              compileSdk 34
+              
+              defaultConfig {
+                  applicationId 'VAR_PACKAGE'
+                  minSdk 21
+                  targetSdk 34
+                  versionCode 1
+                  versionName "1.0"
+              }
+
+              buildTypes {
+                  release {
+                      minifyEnabled true
+                      shrinkResources true
+                      proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+                  }
+              }
+
+              // আর্কিটেকচার অনুযায়ী আলাদা আলাদা APK জেনারেট করার স্প্লিট ব্লক
+              splits {
+                  abi {
+                      enable true
+                      reset()
+                      include "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
+                      universalApk false
+                  }
+              }
+          }
+          EOF
+
+          # প্যাকেজ নেম ডাইনামিকালি রিপ্লেস করা
+          sed -i "s|VAR_PACKAGE|${{ env.PACKAGE }}|g" $TARGET_FILE
+
+          # ৩. ডিপেন্ডেন্সি ইনজেকশন
+          echo -e "\ndependencies {\n    implementation 'androidx.appcompat:appcompat:1.6.1'\n    implementation 'com.google.android.material:material:1.11.0'\n    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'" >> $TARGET_FILE
           
           jq -r '.dependencies[]' setup/setup.json | while read -r lib; do
               if [ ! -z "$lib" ]; then echo "    implementation '$lib'" >> $TARGET_FILE; fi
@@ -47,13 +86,33 @@ jobs:
       - name: Grant Execute Permission
         run: chmod +x source/android_code/gradlew
 
-      - name: Run Clean Gradle Build
+      - name: Run Clean Gradle Release Build
         run: |
           cd source/android_code
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew assembleRelease --no-daemon
 
-      - name: Upload Output APK
-        uses: actions/upload-artifact@v4
+      - name: Generate Release Tag and Name
+        id: release_meta
+        run: |
+          # রিলিজের জন্য ইউনিক টাইমস্ট্যাম্প ট্যাগ তৈরি
+          TAG_VERSION="v1.0-$(date +'%Y%m%d-%H%M')"
+          echo "tag_name=$TAG_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Push Architecture Split APKs to GitHub Releases
+        uses: softprops/action-gh-release@v2
         with:
-          name: ${{ env.APP_NAME }}-build
-          path: source/android_code/app/build/outputs/apk/debug/app-debug.apk
+          tag_name: ${{ steps.release_meta.outputs.tag_name }}
+          name: "🚀 ${{ env.APP_NAME }} Build ${{ steps.release_meta.outputs.tag_name }}"
+          body: |
+            ### 📦 Automated Architecture Split Release
+            এই রিলিজটি গিটহাব অ্যাকশনের মাধ্যমে স্বয়ংক্রিয়ভাবে তৈরি হয়েছে। অ্যাপের সাইজ সর্বোচ্চ ছোট রাখার জন্য প্রসেসর আর্কিটেকচার অনুযায়ী আলাদা আলাদা APK নিচে দেওয়া হলো:
+            
+            * **arm64-v8a:** আধুনিক ৬৪-বিট অ্যান্ড্রয়েড ডিভাইসের জন্য (সবচেয়ে কমন)।
+            * **armeabi-v7a:** পুরোনো ৩২-বিট অ্যান্ড্রয়েড ডিভাইসের জন্য।
+            * **x86 / x86_64:** এমুলেটর বা বিশেষ প্রসেসরের জন্য।
+          draft: false
+          prerelease: false
+          files: |
+            source/android_code/app/build/outputs/apk/release/*.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
