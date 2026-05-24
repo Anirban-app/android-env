@@ -36,70 +36,94 @@ jobs:
           distribution: 'zulu'
           java-version: ${{ env.JAVA_VER }}
 
-      - name: Create Essential Android Directories
+      - name: Auto Create Complete Android Project Structure
         run: |
           rm -rf source/android_code
-          mkdir -p source/android_code/app/src/main/res/layout
-          mkdir -p source/android_code/app/src/main/res/values
-          mkdir -p source/android_code/gradle/wrapper
-          mkdir -p source/android_code/app/src/main/java/${{ env.PACKAGE_PATH }}
-
-      - name: Generate Core Project Files
-        run: |
-          cd source/android_code
+          BASE_DIR="source/android_code"
           
-          # 1. settings.gradle
-          echo "rootProject.name = \"${{ env.APP_NAME }}\"" > settings.gradle
-          echo "include ':app'" >> settings.gradle
+          # ১. অ্যান্ড্রয়েড প্রজেক্টের সব এসেনশিয়াল ফোল্ডার ট্রি তৈরি
+          mkdir -p "$BASE_DIR/app/src/main/java/${{ env.PACKAGE_PATH }}"
+          mkdir -p "$BASE_DIR/app/src/main/res/layout"
+          mkdir -p "$BASE_DIR/app/src/main/res/values"
+          mkdir -p "$BASE_DIR/app/src/main/res/values-night"
+          mkdir -p "$BASE_DIR/app/src/main/res/mipmap-mdpi"
+          mkdir -p "$BASE_DIR/gradle/wrapper"
 
-          # 2. root build.gradle
-          echo "buildscript {" > build.gradle
-          echo "    repositories { google(); mavenCentral() }" >> build.gradle
-          echo "    dependencies {" >> build.gradle
-          echo "        classpath 'com.android.tools.build:gradle:8.2.2'" >> build.gradle
+          # ২. ডাইনামিক বেস স্ট্রাকচার জেনারেট (settings.gradle & gradle.properties)
+          echo "rootProject.name = \"${{ env.APP_NAME }}\"" > "$BASE_DIR/settings.gradle"
+          echo "include ':app'" >> "$BASE_DIR/settings.gradle"
+          
+          echo "android.useAndroidX=true" > "$BASE_DIR/gradle.properties"
+          echo "android.enableJetifier=true" >> "$BASE_DIR/gradle.properties"
+          echo "org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8" >> "$BASE_DIR/gradle.properties"
+
+          # ৩. রুট build.gradle জেনারেট
+          echo "buildscript {" > "$BASE_DIR/build.gradle"
+          echo "    repositories { google(); mavenCentral() }" >> "$BASE_DIR/build.gradle"
+          echo "    dependencies {" >> "$BASE_DIR/build.gradle"
+          echo "        classpath 'com.android.tools.build:gradle:8.2.2'" >> "$BASE_DIR/build.gradle"
           if [ "${{ env.CODEBASE }}" = "kotlin" ]; then
-              echo "        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.22'" >> build.gradle
+              echo "        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.22'" >> "$BASE_DIR/build.gradle"
           fi
-          echo "    }" >> build.gradle
-          echo "}" >> build.gradle
-          echo "allprojects { repositories { google(); mavenCentral() } }" >> build.gradle
+          echo "    }" >> "$BASE_DIR/build.gradle"
+          echo "}" >> "$BASE_DIR/build.gradle"
+          echo "allprojects { repositories { google(); mavenCentral() } }" >> "$BASE_DIR/build.gradle"
 
-          # 3. app/build.gradle (বেস পার্ট)
-          echo "apply plugin: 'com.android.application'" > app/build.gradle
-          if [ "${{ env.CODEBASE }}" = "kotlin" ]; then 
-              echo "apply plugin: 'kotlin-android'" >> app/build.gradle
-          fi
+          # ৪. স্ট্যান্ডার্ড রিসোর্স ফাইল জেনারেট (colors.xml, strings.xml, themes.xml)
+          # colors.xml
+          cat <<EOF > "$BASE_DIR/app/src/main/res/values/colors.xml"
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <color name="black">#FF000000</color>
+              <color name="white">#FFFFFFFF</color>
+              <color name="purple_500">#FF6200EE</color>
+              <color name="purple_700">#FF3700B3</color>
+              <color name="teal_200">#FF03DAC5</color>
+          </resources>
+          EOF
 
-          echo "android {" >> app/build.gradle
-          echo "    namespace '${{ env.PACKAGE }}'" >> app/build.gradle
-          echo "    compileSdk 34" >> app/build.gradle
-          echo "    defaultConfig {" >> app/build.gradle
-          echo "        applicationId '${{ env.PACKAGE }}'" >> app/build.gradle
-          echo "        minSdk 21" >> app/build.gradle
-          echo "        targetSdk 34" >> app/build.gradle
-          echo "        versionCode 1" >> app/build.gradle
-          echo "        versionName \"1.0\"" >> app/build.gradle
-          echo "    }" >> app/build.gradle
-          echo "}" >> app/build.gradle
+          # strings.xml
+          cat <<EOF > "$BASE_DIR/app/src/main/res/values/strings.xml"
+          <resources>
+              <string name="app_name">${{ env.APP_NAME }}</string>
+          </resources>
+          EOF
 
-          # 4. ডিপেন্ডেন্সি অংশ অ্যাপেন্ড করা (সেফ মেথড)
-          echo "dependencies {" >> app/build.gradle
-          echo "    implementation 'androidx.appcompat:appcompat:1.6.1'" >> app/build.gradle
-          echo "    implementation 'com.google.android.material:material:1.11.0'" >> app/build.gradle
-          echo "    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'" >> app/build.gradle
-          
-          # জেসন থেকে ডিপেন্ডেন্সি লুপ চালিয়ে ডাইরেক্ট রাইট
-          jq -r '.dependencies[]' ../../setup/setup.json | while read -r lib; do
-              if [ ! -z "$lib" ]; then
-                  echo "    implementation '$lib'" >> app/build.gradle
-              fi
-          done
-          echo "}" >> app/build.gradle
+          # themes.xml
+          cat <<EOF > "$BASE_DIR/app/src/main/res/values/themes.xml"
+          <resources>
+              <style name="Theme.App" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+                  <item name="colorPrimary">@color/purple_500</item>
+                  <item name="colorPrimaryVariant">@color/purple_700</item>
+                  <item name="colorOnPrimary">@color/white</item>
+                  <item name="colorSecondary">@color/teal_200</item>
+                  <style name="Theme.App" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+                  <item name="colorOnSecondary">@color/black</item>
+                  <item name="android:statusBarColor">@color/purple_700</item>
+              </style>
+          </resources>
+          EOF
 
-          # 5. AndroidManifest Mode (Mobile, TV vs ALL)
+          # ৫. activity_main.xml ভিউ লেআউট জেনারেট
+          cat <<EOF > "$BASE_DIR/app/src/main/res/layout/activity_main.xml"
+          <?xml version="1.0" encoding="utf-8"?>
+          <RelativeLayout xmlns:android="http://schemas.github.com/apk/res/android"
+              android:layout_width="match_parent"
+              android:layout_height="match_parent"
+              android:background="#121212">
+              <TextView
+                  android:layout_width="wrap_content"
+                  android:layout_height="wrap_content"
+                  android:text="${{ env.APP_NAME }} - Engine Ready"
+                  android:textColor="#FFFFFF"
+                  android:textSize="20sp"
+                  android:layout_centerInParent="true"/>
+          </RelativeLayout>
+          EOF
+
+          # ৬. অ্যান্ড্রয়েড মোড ওয়াইজ (Mobile, TV, ALL) ম্যানিফেস্ট হ্যান্ডলিং
           TV_FEATURE=""
           INTENT_FILTERS=""
-
           if [ "${{ env.MODE }}" = "mobile" ]; then
              INTENT_FILTERS="<action android:name=\"android.intent.action.MAIN\" /><category android:name=\"android.intent.category.LAUNCHER\" />"
           elif [ "${{ env.MODE }}" = "tv" ]; then
@@ -110,15 +134,17 @@ jobs:
              INTENT_FILTERS="<action android:name=\"android.intent.action.MAIN\" /><category android:name=\"android.intent.category.LAUNCHER\" /><category android:name=\"android.intent.category.LEANBACK_LAUNCHER\" />"
           fi
 
-          # AndroidManifest.xml জেনারেট
-          cat <<EOF > app/src/main/AndroidManifest.xml
+          cat <<EOF > "$BASE_DIR/app/src/main/AndroidManifest.xml"
+          <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.github.com/apk/res/android">
               <uses-permission android:name="android.permission.INTERNET"/>
+              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
               $TV_FEATURE
               <application
                   android:allowBackup="true"
-                  android:label="${{ env.APP_NAME }}"
-                  android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+                  android:label="@string/app_name"
+                  android:icon="@android:drawable/sym_def_app_icon"
+                  android:theme="@style/Theme.App">
                   <activity android:name=".MainActivity" android:exported="true">
                       <intent-filter>
                           $INTENT_FILTERS
@@ -128,9 +154,9 @@ jobs:
           </manifest>
           EOF
 
-          # MainActivity জেনারেট
+          # ৭. codebase অনুযায়ী MainActivity কোড জেনারেশন
           if [ "${{ env.CODEBASE }}" = "kotlin" ]; then
-          cat <<EOF > app/src/main/java/${{ env.PACKAGE_PATH }}/MainActivity.kt
+          cat <<EOF > "$BASE_DIR/app/src/main/java/${{ env.PACKAGE_PATH }}/MainActivity.kt"
           package ${{ env.PACKAGE }}
           import android.os.Bundle
           import androidx.appcompat.app.AppCompatActivity
@@ -143,7 +169,7 @@ jobs:
           }
           EOF
           else
-          cat <<EOF > app/src/main/java/${{ env.PACKAGE_PATH }}/MainActivity.java
+          cat <<EOF > "$BASE_DIR/app/src/main/java/${{ env.PACKAGE_PATH }}/MainActivity.java"
           package ${{ env.PACKAGE }};
           import android.os.Bundle;
           import androidx.appcompat.app.AppCompatActivity;
@@ -152,26 +178,27 @@ jobs:
               @Override
               protected void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
+                  setContentView(savedInstanceState);
                   setContentView(R.layout.activity_main);
               }
           }
           EOF
           fi
 
-          # activity_main.xml Layout
-          cat <<EOF > app/src/main/res/layout/activity_main.xml
-          <RelativeLayout xmlns:android="http://schemas.github.com/apk/res/android"
-              android:layout_width="match_parent" android:layout_height="match_parent">
-              <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                  android:text="Template Ready" android:layout_centerInParent="true"/>
-          </RelativeLayout>
-          EOF
+      - name: Setup App Build.Gradle Base
+        run: |
+          TARGET_FILE="source/android_code/app/build.gradle"
+          echo "apply plugin: 'com.android.application'" > $TARGET_FILE
+          if [ "${{ env.CODEBASE }}" = "kotlin" ]; then echo "apply plugin: 'kotlin-android'" >> $TARGET_FILE; fi
+          
+          echo -e "android {\n    namespace '${{ env.PACKAGE }}'\n    compileSdk 34\n    defaultConfig {\n        applicationId '${{ env.PACKAGE }}'\n        minSdk 21\n        targetSdk 34\n        versionCode 1\n        versionName \"1.0\"\n    }\n}" >> $TARGET_FILE
+          echo -e "dependencies {\n    implementation 'androidx.appcompat:appcompat:1.6.1'\n    implementation 'com.google.android.material:material:1.11.0'\n    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'" >> $TARGET_FILE
+          jq -r '.dependencies[]' setup/setup.json | while read -r lib; do
+              if [ ! -z "$lib" ]; then echo "    implementation '$lib'" >> $TARGET_FILE; fi
+          done
+          echo "}" >> $TARGET_FILE
 
-          # gradle.properties
-          echo "android.useAndroidX=true" > gradle.properties
-          echo "android.enableJetifier=true" >> gradle.properties
-
-      - name: Inject Official Gradle Wrapper and JAR
+      - name: Inject Official Gradle Wrapper Tools
         run: |
           cd source/android_code
           mkdir -p gradle/wrapper
@@ -180,10 +207,10 @@ jobs:
           echo "distributionUrl=https\://services.gradle.org/distributions/gradle-8.5-all.zip" > gradle/wrapper/gradle-wrapper.properties
           wget https://raw.githubusercontent.com/gradle/gradle/v8.5.0/gradle/wrapper/gradle-wrapper.jar -O gradle/wrapper/gradle-wrapper.jar
 
-      - name: Push All Required Files to Github
+      - name: Commit and Push Clean Empty Project Template
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add source/android_code
-          git commit -m "🚀 Pushed All Essential Android Project Files with Gradle JAR" || echo "No changes"
+          git commit -m "🚀 Created Complete Clean Empty Android Project Structure with Resources" || echo "No changes"
           git push origin main
