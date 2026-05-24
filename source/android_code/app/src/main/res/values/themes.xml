@@ -1,11 +1,7 @@
+<!-- সঠিক এক্সএমএল ফরম্যাট উদাহরণ -->
 <resources>
-    <style name="Theme.App" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+    <style name="Theme.Ottking" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <!-- এখানে আপনার কাস্টম কালার বা আইটেমগুলো থাকবে -->
         <item name="colorPrimary">@color/purple_500</item>
-        <item name="colorPrimaryVariant">@color/purple_700</item>
-        <item name="colorOnPrimary">@color/white</item>
-        <item name="colorSecondary">@color/teal_200</item>
-        <style name="Theme.App" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-        <item name="colorOnSecondary">@color/black</item>
-        <item name="android:statusBarColor">@color/purple_700</item>
-    </style>
+    </style> <!-- নিশ্চিত করুন এই ক্লোজিং ট্যাগটি ঠিকমতো আছে কিনা -->
 </resources>
