@@ -2,7 +2,7 @@
   "app_name": "OTTking Premium",
   "package": "com.ottking.app",
   "java_version": "17",
-  "codebase": "kotlin",
+  "codebase": "java",
   "mode": "all",
   "dependencies": [
     "androidx.cardview:cardview:1.0.0",
