@@ -91,13 +91,13 @@ jobs:
 
           # themes.xml
           cat <<EOF > "$BASE_DIR/app/src/main/res/values/themes.xml"
+          <?xml version="1.0" encoding="utf-8"?>
           <resources>
-              <style name="Theme.App" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+              <style name="Theme.Ottking" parent="Theme.MaterialComponents.DayNight.NoActionBar">
                   <item name="colorPrimary">@color/purple_500</item>
                   <item name="colorPrimaryVariant">@color/purple_700</item>
                   <item name="colorOnPrimary">@color/white</item>
                   <item name="colorSecondary">@color/teal_200</item>
-                  <style name="Theme.App" parent="Theme.MaterialComponents.DayNight.NoActionBar">
                   <item name="colorOnSecondary">@color/black</item>
                   <item name="android:statusBarColor">@color/purple_700</item>
               </style>
@@ -136,16 +136,18 @@ jobs:
 
           cat <<EOF > "$BASE_DIR/app/src/main/AndroidManifest.xml"
           <?xml version="1.0" encoding="utf-8"?>
-          <manifest xmlns:android="http://schemas.github.com/apk/res/android">
-              <uses-permission android:name="android.permission.INTERNET"/>
-              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <uses-permission android:name="android.permission.INTERNET" />
+              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
               $TV_FEATURE
               <application
                   android:allowBackup="true"
                   android:label="@string/app_name"
                   android:icon="@android:drawable/sym_def_app_icon"
-                  android:theme="@style/Theme.App">
-                  <activity android:name=".MainActivity" android:exported="true">
+                  android:theme="@style/Theme.Ottking">
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true">
                       <intent-filter>
                           $INTENT_FILTERS
                       </intent-filter>
@@ -178,7 +180,6 @@ jobs:
               @Override
               protected void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
-                  setContentView(savedInstanceState);
                   setContentView(R.layout.activity_main);
               }
           }
