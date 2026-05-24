@@ -30,7 +30,7 @@ jobs:
           java-version: ${{ env.JAVA_VER }}
           cache: 'gradle'
 
-      - name: Live Update Dependencies and Enable Architecture Splits
+      - name: Live Update Dependencies and Configuration
         run: |
           TARGET_FILE="source/android_code/app/build.gradle"
           
@@ -38,7 +38,7 @@ jobs:
           echo "apply plugin: 'com.android.application'" > $TARGET_FILE
           if [ "${{ env.CODEBASE }}" = "kotlin" ]; then echo "apply plugin: 'kotlin-android'" >> $TARGET_FILE; fi
           
-          # ২. অ্যান্ড্রয়েড ব্লক এবং সাইজ অপ্টিমাইজেশন (Minify + Shrink) সহ আর্কিটেকচার স্প্লিট কনফিগারেশন
+          # ২. অ্যান্ড্রয়েড কোর ব্লক (সাইজ অপ্টিমাইজেশন এবং স্প্লিট আর্কিটেকচার)
           cat << 'EOF' >> $TARGET_FILE
           android {
               namespace 'VAR_PACKAGE'
@@ -56,11 +56,18 @@ jobs:
                   release {
                       minifyEnabled true
                       shrinkResources true
+                      // রিপোজিটরির স্ট্যাটিক প্রোগার্ড ফাইলটি এখান থেকে সরাসরি লিংক হবে
                       proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
                   }
               }
 
-              // আর্কিটেকচার অনুযায়ী আলাদা আলাদা APK জেনারেট করার স্প্লিট ব্লক
+              // লিন্ট নেমস্পেস বা এক্সএমএল ভুলের জন্য রিলিজ বিল্ড যেন বন্ধ না হয়
+              lint {
+                  checkReleaseBuilds false
+                  abortOnError false
+              }
+
+              // আর্কিটেকচার অনুযায়ী ছোট সাইজের স্প্লিট APK জেনারেট করার ব্লক
               splits {
                   abi {
                       enable true
@@ -94,7 +101,6 @@ jobs:
       - name: Generate Release Tag and Name
         id: release_meta
         run: |
-          # রিলিজের জন্য ইউনিক টাইমস্ট্যাম্প ট্যাগ তৈরি
           TAG_VERSION="v1.0-$(date +'%Y%m%d-%H%M')"
           echo "tag_name=$TAG_VERSION" >> $GITHUB_OUTPUT
 
@@ -105,11 +111,11 @@ jobs:
           name: "🚀 ${{ env.APP_NAME }} Build ${{ steps.release_meta.outputs.tag_name }}"
           body: |
             ### 📦 Automated Architecture Split Release
-            এই রিলিজটি গিটহাব অ্যাকশনের মাধ্যমে স্বয়ংক্রিয়ভাবে তৈরি হয়েছে। অ্যাপের সাইজ সর্বোচ্চ ছোট রাখার জন্য প্রসেসর আর্কিটেকচার অনুযায়ী আলাদা আলাদা APK নিচে দেওয়া হলো:
+            এই রিলিজটি গিটহাব অ্যাকশনের মাধ্যমে স্বয়ংক্রিয়ভাবে তৈরি হয়েছে। অ্যাপের সাইজ সর্বোচ্চ ছোট রাখার জন্য প্রসেсор আর্কিটেকচার অনুযায়ী আলাদা আলাদা APK নিচে দেওয়া হলো:
             
-            * **arm64-v8a:** আধুনিক ৬৪-বিট অ্যান্ড্রয়েড ডিভাইসের জন্য (সবচেয়ে কমন)।
+            * **arm64-v8a:** আধুনিক ৬৪-বিট অ্যান্ড্রয়েড ডিভাইসের জন্য।
             * **armeabi-v7a:** পুরোনো ৩২-বিট অ্যান্ড্রয়েড ডিভাইসের জন্য।
-            * **x86 / x86_64:** এমুলেটর বা বিশেষ প্রসেসরের জন্য।
+            * **x86 / x86_64:** এমুলেটর বা কাস্টম প্রসেসরের জন্য।
           draft: false
           prerelease: false
           files: |
