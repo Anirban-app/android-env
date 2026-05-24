@@ -2,12 +2,46 @@
 <RelativeLayout xmlns:android="http://schemas.github.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#121212">
+    android:background="#121212"
+    android:padding="24dp">
+
+    <!-- মূল ব্র্যান্ডিং টেক্সট (টিভির জন্য সাইজ একটু বড় করা হয়েছে) -->
     <TextView
+        android:id="@+id/txt_title"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="OTTking Premium - Engine Ready"
+        android:text="OTTking Premium"
         android:textColor="#FFFFFF"
-        android:textSize="20sp"
-        android:layout_centerInParent="true"/>
+        android:textSize="28sp"
+        android:textStyle="bold"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="80dp"/>
+
+    <TextView
+        android:id="@+id/txt_status"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Streaming Engine Ready"
+        android:textColor="#00FF88"
+        android:textSize="16sp"
+        android:layout_below="@id/txt_title"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="8dp"/>
+
+    <!-- 💡 টেস্ট বাটন: এটি দিয়ে মোবাইলে টাচ এবং টিভিতে রিমোটের OK বাটন টেস্ট করতে পারবেন -->
+    <Button
+        android:id="@+id/btn_enter"
+        android:layout_width="240dp"
+        android:layout_height="wrap_content"
+        android:layout_centerInParent="true"
+        android:text="Enter App"
+        android:textColor="#121212"
+        android:backgroundTint="#00FF88"
+        android:textStyle="bold"
+        
+        android:focusable="true"
+        android:clickable="true"
+        android:focusableInTouchMode="false"
+        android:foreground="?android:attr/selectableItemBackground" />
+
 </RelativeLayout>
