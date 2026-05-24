@@ -48,49 +48,55 @@ jobs:
         run: |
           cd source/android_code
           
-          # settings.gradle
+          # 1. settings.gradle
           echo "rootProject.name = \"${{ env.APP_NAME }}\"" > settings.gradle
           echo "include ':app'" >> settings.gradle
 
-          # root build.gradle
-          cat <<EOF > build.gradle
-          buildscript {
-              repositories { google(); mavenCentral() }
-              dependencies {
-                  classpath 'com.android.tools.build:gradle:8.2.2'
-                  if ('${{ env.CODEBASE }}' == 'kotlin') {
-                      classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.22'
-                  }
-              }
-          }
-          allprojects { repositories { google(); mavenCentral() } }
-          EOF
+          # 2. root build.gradle
+          echo "buildscript {" > build.gradle
+          echo "    repositories { google(); mavenCentral() }" >> build.gradle
+          echo "    dependencies {" >> build.gradle
+          echo "        classpath 'com.android.tools.build:gradle:8.2.2'" >> build.gradle
+          if [ "${{ env.CODEBASE }}" = "kotlin" ]; then
+              echo "        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.22'" >> build.gradle
+          fi
+          echo "    }" >> build.gradle
+          echo "}" >> build.gradle
+          echo "allprojects { repositories { google(); mavenCentral() } }" >> build.gradle
 
-          # app/build.gradle (ডিপেন্ডেন্সি সিঙ্ক সহ)
-          cat <<EOF > app/build.gradle
-          apply plugin: 'com.android.application'
-          if ('${{ env.CODEBASE }}' == 'kotlin') { apply plugin: 'kotlin-android' }
+          # 3. app/build.gradle (বেস পার্ট)
+          echo "apply plugin: 'com.android.application'" > app/build.gradle
+          if [ "${{ env.CODEBASE }}" = "kotlin" ]; then 
+              echo "apply plugin: 'kotlin-android'" >> app/build.gradle
+          fi
 
-          android {
-              namespace '${{ env.PACKAGE }}'
-              compileSdk 34
-              defaultConfig {
-                  applicationId '${{ env.PACKAGE }}'
-                  minSdk 21
-                  targetSdk 34
-                  versionCode 1
-                  versionName "1.0"
-              }
-          }
-          dependencies {
-              implementation 'androidx.appcompat:appcompat:1.6.1'
-              implementation 'com.google.android.material:material:1.11.0'
-              implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
-              $(jq -r '.dependencies[] | "    implementation \((.))\""' ../../setup/setup.json)
-          }
-          EOF
+          echo "android {" >> app/build.gradle
+          echo "    namespace '${{ env.PACKAGE }}'" >> app/build.gradle
+          echo "    compileSdk 34" >> app/build.gradle
+          echo "    defaultConfig {" >> app/build.gradle
+          echo "        applicationId '${{ env.PACKAGE }}'" >> app/build.gradle
+          echo "        minSdk 21" >> app/build.gradle
+          echo "        targetSdk 34" >> app/build.gradle
+          echo "        versionCode 1" >> app/build.gradle
+          echo "        versionName \"1.0\"" >> app/build.gradle
+          echo "    }" >> app/build.gradle
+          echo "}" >> app/build.gradle
 
-          # AndroidManifest Mode (Mobile, TV vs ALL)
+          # 4. ডিপেন্ডেন্সি অংশ অ্যাপেন্ড করা (সেফ মেথড)
+          echo "dependencies {" >> app/build.gradle
+          echo "    implementation 'androidx.appcompat:appcompat:1.6.1'" >> app/build.gradle
+          echo "    implementation 'com.google.android.material:material:1.11.0'" >> app/build.gradle
+          echo "    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'" >> app/build.gradle
+          
+          # জেসন থেকে ডিপেন্ডেন্সি লুপ চালিয়ে ডাইরেক্ট রাইট
+          jq -r '.dependencies[]' ../../setup/setup.json | while read -r lib; do
+              if [ ! -z "$lib" ]; then
+                  echo "    implementation '$lib'" >> app/build.gradle
+              fi
+          done
+          echo "}" >> app/build.gradle
+
+          # 5. AndroidManifest Mode (Mobile, TV vs ALL)
           TV_FEATURE=""
           INTENT_FILTERS=""
 
@@ -104,7 +110,7 @@ jobs:
              INTENT_FILTERS="<action android:name=\"android.intent.action.MAIN\" /><category android:name=\"android.intent.category.LAUNCHER\" /><category android:name=\"android.intent.category.LEANBACK_LAUNCHER\" />"
           fi
 
-          # AndroidManifest.xml
+          # AndroidManifest.xml জেনারেট
           cat <<EOF > app/src/main/AndroidManifest.xml
           <manifest xmlns:android="http://schemas.github.com/apk/res/android">
               <uses-permission android:name="android.permission.INTERNET"/>
@@ -122,7 +128,7 @@ jobs:
           </manifest>
           EOF
 
-          # MainActivity Codebase check
+          # MainActivity জেনারেট
           if [ "${{ env.CODEBASE }}" = "kotlin" ]; then
           cat <<EOF > app/src/main/java/${{ env.PACKAGE_PATH }}/MainActivity.kt
           package ${{ env.PACKAGE }}
@@ -165,7 +171,6 @@ jobs:
           echo "android.useAndroidX=true" > gradle.properties
           echo "android.enableJetifier=true" >> gradle.properties
 
-      # অফিশিয়াল গ্রেডল র‍্যাপার, প্রোপার্টিজ এবং প্রয়োজনীয় JAR ফাইল ডাউনলোড
       - name: Inject Official Gradle Wrapper and JAR
         run: |
           cd source/android_code
